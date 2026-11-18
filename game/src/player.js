@@ -24,16 +24,11 @@ export class Player {
     this.root.name = 'player_bagas';
     scene.add(this.root);
 
-    // Use the shared citizen body for the player: the supplied player mesh's
-    // arm skin weights tear under the shared locomotion clips, while the
-    // citizen body is clean and uses the same mixamorig skeleton. The red/black
-    // mechanic palette is painted below so BAGAS keeps his identity.
-    const character = assets.cloneCharacter('citizen');
+    const character = assets.cloneCharacter('bagas');
     this.character = character;
     this.model = character.root;
     this.root.add(this.model);
     this.scale = character.scale;
-    this.paintBagasBody();
 
     this.mixer = new THREE.AnimationMixer(this.model);
     this.actions = new Map();
@@ -42,15 +37,6 @@ export class Player {
       action.enabled = false;
       this.actions.set(clip.name, action);
     }
-    const alias = (names, source) => {
-      const action = this.actions.get(source);
-      if (action) for (const name of names) this.actions.set(name, action);
-    };
-    alias(['Walking', 'Fast_Run', 'Rifle_Walk'], 'Walking_walk');
-    alias(['Firing_Rifle', 'Reload', 'Jumping'], 'sipil_Hit_To_Body');
-    alias(['Driving'], 'sipil_Sitting_Pose');
-    this.actions.set('Idle', this.actions.get('sipil_Neutral_Idle'));
-
     this.activeAction = null;
     this.activeName = '';
     this.oneShot = null;
@@ -81,7 +67,7 @@ export class Player {
     this.rifleObject = null;
     this.attachRifle();
 
-    this.setState('Idle');
+    this.setState('Walking');
     this.mixer.addEventListener('finished', (event) => {
       if (this.oneShot && event.action === this.oneShot) {
         this.oneShot = null;
@@ -183,11 +169,10 @@ export class Player {
     else if (this.equipped) name = 'Rifle_Walk';
     else if (speed > 4.7) name = 'Fast_Run';
     else if (speed > 0.35) name = 'Walking';
-    else name = 'Idle';
+    else name = 'Walking';
     this.setState(name, force ? 0.12 : 0.2);
     if (this.activeAction) {
-      if (name === 'Idle') this.activeAction.setEffectiveTimeScale(1);
-      else if (name === 'Walking' && speed <= 0.35) this.activeAction.setEffectiveTimeScale(0.1);
+      if (name === 'Walking' && speed <= 0.35) this.activeAction.setEffectiveTimeScale(0.1);
       else if (name === 'Walking') this.activeAction.setEffectiveTimeScale(1.15 + speed * 0.05);
       else if (name === 'Fast_Run') this.activeAction.setEffectiveTimeScale(1.1 + speed * 0.04);
       else if (name === 'Rifle_Walk') this.activeAction.setEffectiveTimeScale(speed > 0.35 ? 1.1 : 0.12);
@@ -286,46 +271,6 @@ export class Player {
     this.mixer.update(dt);
     this.updateRifleAim();
     this.updateCamera(dt, camera);
-  }
-
-  paintBagasBody() {
-    const skin = new THREE.Color(0xc08a63);
-    const shirt = new THREE.Color(0xb8402f);
-    const pants = new THREE.Color(0x222428);
-    const shoes = new THREE.Color(0x1b1a19);
-    this.model.traverse((node) => {
-      if (!node.isMesh) return;
-      const geo = node.geometry.clone();
-      geo.computeBoundingBox();
-      const minY = geo.boundingBox.min.y;
-      const maxY = geo.boundingBox.max.y;
-      const span = Math.max(0.001, maxY - minY);
-      const pos = geo.attributes.position;
-      const colours = new Float32Array(pos.count * 3);
-      const c = new THREE.Color();
-      for (let i = 0; i < pos.count; i++) {
-        const h = (pos.getY(i) - minY) / span;
-        if (h > 0.84) c.copy(skin);
-        else if (h > 0.52) c.copy(shirt);
-        else if (h > 0.08) c.copy(pants);
-        else c.copy(shoes);
-        colours[i * 3] = c.r;
-        colours[i * 3 + 1] = c.g;
-        colours[i * 3 + 2] = c.b;
-      }
-      geo.setAttribute('color', new THREE.BufferAttribute(colours, 3));
-      node.geometry = geo;
-      const mats = Array.isArray(node.material) ? node.material : [node.material];
-      node.material = mats.map((mat) => {
-        if (!mat) return mat;
-        const copy = mat.clone();
-        copy.vertexColors = true;
-        copy.color.set(0xffffff);
-        copy.roughness = 0.9;
-        return copy;
-      });
-      if (node.material.length === 1) node.material = node.material[0];
-    });
   }
 
   updateRifleAim() {
