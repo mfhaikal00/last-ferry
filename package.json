@@ -1,0 +1,8 @@
+{
+  "name": "last-ferry",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Last Ferry — an open-world crime game in Salt Harbor",
+  "license": "MIT",
+  "type": "module"
+}

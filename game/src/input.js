@@ -1,53 +1,101 @@
-// Keyboard and pointer input. Held keys give a steering direction; one-shot presses (start or
-// restart, pause) are queued as bit flags and taken once by the loop, so a press between two
-// frames is never lost and never counted twice.
+// Last Ferry — Salt Harbor.
+// Keyboard and mouse input. Pointer lock drives the third-person camera;
+// one-shot key presses are consumed by the gameplay layer each frame.
 
-export const ACTION_CONFIRM = 1;
-export const ACTION_PAUSE = 2;
+export class Input {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.down = new Set();
+    this.pressed = new Set();
+    this.mouse = { dx: 0, dy: 0, wheel: 0, left: false, right: false, clicked: false };
+    this.locked = false;
+    this.enabled = true;
 
-const LEFT = new Set(['ArrowLeft', 'KeyA']);
-const RIGHT = new Set(['ArrowRight', 'KeyD']);
-const CONFIRM = new Set(['Space', 'Enter']);
-const PAUSE = new Set(['KeyP', 'Escape']);
+    window.addEventListener('keydown', (event) => {
+      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) event.preventDefault();
+      if (!this.down.has(event.code)) this.pressed.add(event.code);
+      this.down.add(event.code);
+    });
+    window.addEventListener('keyup', (event) => {
+      this.down.delete(event.code);
+      if (event.code === 'MouseLeft') this.mouse.left = false;
+    });
+    window.addEventListener('blur', () => this.down.clear());
+    canvas.addEventListener('mousedown', (event) => {
+      if (!this.enabled) return;
+      if (!this.locked) {
+        this.requestLock();
+        return;
+      }
+      if (event.button === 0) { this.mouse.left = true; this.mouse.clicked = true; }
+      if (event.button === 2) this.mouse.right = true;
+    });
+    canvas.addEventListener('mouseup', (event) => {
+      if (event.button === 0) this.mouse.left = false;
+      if (event.button === 2) this.mouse.right = false;
+    });
+    canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+    window.addEventListener('mousemove', (event) => {
+      if (!this.locked) return;
+      this.mouse.dx += event.movementX;
+      this.mouse.dy += event.movementY;
+    });
+    window.addEventListener('wheel', (event) => {
+      if (this.locked) this.mouse.wheel += Math.sign(event.deltaY);
+    }, { passive: true });
+    document.addEventListener('pointerlockchange', () => {
+      this.locked = document.pointerLockElement === this.canvas;
+      if (!this.locked) {
+        this.down.clear();
+        this.mouse.left = false;
+        this.mouse.right = false;
+      }
+    });
+  }
 
-export function createInput(target) {
-  let left = false;
-  let right = false;
-  let actions = 0;
+  requestLock() {
+    if (this.locked) return;
+    try {
+      const result = this.canvas.requestPointerLock?.();
+      if (result && typeof result.catch === 'function') result.catch(() => {});
+    } catch {
+      // Pointer lock can be refused by the browser; the game stays keyboard-playable.
+    }
+  }
 
-  window.addEventListener('keydown', (event) => {
-    if (LEFT.has(event.code)) left = true;
-    else if (RIGHT.has(event.code)) right = true;
-    else if (CONFIRM.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_CONFIRM;
-    } else if (PAUSE.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_PAUSE;
-    } else return;
-    event.preventDefault();
-  });
-  window.addEventListener('keyup', (event) => {
-    if (LEFT.has(event.code)) left = false;
-    else if (RIGHT.has(event.code)) right = false;
-  });
-  // A key released while the tab is hidden never sends keyup: let go of everything on blur.
-  window.addEventListener('blur', () => {
-    left = false;
-    right = false;
-  });
-  target.addEventListener('pointerdown', () => {
-    actions |= ACTION_CONFIRM;
-  });
+  release() {
+    if (this.locked) document.exitPointerLock?.();
+  }
 
-  return {
-    /** -1 for left, 1 for right, 0 for neither or both. */
-    direction() {
-      return (right ? 1 : 0) - (left ? 1 : 0);
-    },
-    /** The one-shot presses since the last call, as ACTION_* flags. */
-    takeActions() {
-      const taken = actions;
-      actions = 0;
-      return taken;
-    },
-  };
+  isDown(code) {
+    return this.down.has(code);
+  }
+
+  consume(code) {
+    if (!this.pressed.has(code)) return false;
+    this.pressed.delete(code);
+    return true;
+  }
+
+  consumeClick() {
+    if (!this.mouse.clicked) return false;
+    this.mouse.clicked = false;
+    return true;
+  }
+
+  takeLook() {
+    const dx = this.mouse.dx;
+    const dy = this.mouse.dy;
+    this.mouse.dx = 0;
+    this.mouse.dy = 0;
+    return { dx, dy };
+  }
+
+  endFrame() {
+    this.pressed.clear();
+    this.mouse.dx = 0;
+    this.mouse.dy = 0;
+    this.mouse.wheel = 0;
+    this.mouse.clicked = false;
+  }
 }
