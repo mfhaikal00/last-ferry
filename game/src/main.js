@@ -1,33 +1,24 @@
-// Last Ferry — Salt Harbor.
-// Boot, lighting, the game loop, interaction routing, save/restore and the
-// screenshot stages. Systems live in their own modules: city, buildings, roads,
-// player, vehicles, police, mission, combat, HUD, minimap, audio, effects.
+// Last Ferry — boot, loop and screenshot staging.
+// Builds the renderer and lighting, loads assets, assembles the world and every
+// system, routes input between walking and driving, saves progress, and exposes
+// the four fixed cinematic states used for the screenshots.
 
 import * as THREE from '../vendor/three.module.min.js';
-import { AssetLibrary } from './assets.js';
-import { AudioDirector } from './audio.js';
-import { buildSky, buildWater } from './city.js';
-import { CollisionWorld } from './collision.js';
-import { CombatDirector } from './combat.js';
-import { NODES, POI, QUALITY, ROADS, WORLD } from './config.js';
-import { Effects } from './fx.js';
-import { Hud } from './hud.js';
-import { Input } from './input.js';
-import { Minimap } from './minimap.js';
-import { MissionDirector } from './missions.js';
+import { AssetLibrary, Effects } from './assets.js';
+import { AudioDirector, Input, NODES, POI, QUALITY, ROADS, SaveSystem, WORLD, distance2D } from './core.js';
+import { CombatDirector, MissionDirector } from './missions.js';
+import { Hud, Minimap } from './hud.js';
 import { NpcDirector } from './npc.js';
 import { Player } from './player.js';
 import { PoliceDirector } from './police.js';
-import { SaveSystem } from './save.js';
-import { setupShot, SHOT_NAMES } from './shots.js';
-import { distance2D } from './random.js';
 import { VehicleFleet } from './vehicles.js';
-import { buildWorld } from './world.js';
+import { buildSky, buildWater, buildWorld, CollisionWorld } from './world.js';
 
 const params = new URLSearchParams(location.search);
 const debug = params.has('debug');
 const perf = params.has('perf');
 const requestedShot = params.get('shot');
+const SHOTS = ['cover', 'market', 'terminal', 'combat'];
 
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', alpha: false });
@@ -49,30 +40,22 @@ camera.position.set(-50, 40, 60);
 const sunDir = buildSky(scene);
 const waterMaterial = buildWater(scene, sunDir);
 
-const hemi = new THREE.HemisphereLight(0xcfe4ee, 0x4c4a3a, 0.72);
-scene.add(hemi);
+scene.add(new THREE.HemisphereLight(0xcfe4ee, 0x4c4a3a, 0.72));
 const sun = new THREE.DirectionalLight(0xffd2a3, 2.15);
 sun.position.copy(sunDir).multiplyScalar(170);
 sun.castShadow = true;
 sun.shadow.mapSize.set(QUALITY.shadowMap, QUALITY.shadowMap);
-sun.shadow.camera.left = -145;
-sun.shadow.camera.right = 145;
-sun.shadow.camera.top = 145;
-sun.shadow.camera.bottom = -145;
-sun.shadow.camera.near = 1;
-sun.shadow.camera.far = 460;
+Object.assign(sun.shadow.camera, { left: -145, right: 145, top: 145, bottom: -145, near: 1, far: 460 });
 sun.shadow.bias = -0.0006;
 sun.shadow.normalBias = 0.03;
-scene.add(sun);
-scene.add(sun.target);
+scene.add(sun, sun.target);
 const fill = new THREE.DirectionalLight(0x8fb6c4, 0.45);
 fill.position.set(80, 50, -120);
 scene.add(fill);
 const fillSouth = new THREE.DirectionalLight(0xa8c8d4, 0.72);
 fillSouth.position.set(110, 45, 170);
 scene.add(fillSouth);
-const ambient = new THREE.AmbientLight(0x6f8b93, 0.34);
-scene.add(ambient);
+scene.add(new THREE.AmbientLight(0x6f8b93, 0.34));
 
 let collision;
 let assets;
@@ -93,8 +76,8 @@ let mode = 'loading';
 let menuTime = 0;
 let driveOrbit = 0;
 let drivePitch = 0.24;
-let minimapTimer = 0;
 let saveTimer = 0;
+let minimapAccumulator = 0;
 let lastMissionStage = null;
 let hadPointerLock = false;
 let lastTime = performance.now();
@@ -108,14 +91,16 @@ input = new Input(canvas);
 hud = new Hud({
   onStart: (continueRun) => startGame(continueRun),
   onResume: () => resumeGame(),
+  onRetry: () => {
+    missions.checkpointRetry();
+    resumeGame();
+  },
   onSave: () => {
     saveGame(true);
     hud.showToast('Game saved');
   },
   onQuit: () => showTitleMenu(),
-  onMissionContinue: () => {
-    input.requestLock();
-  },
+  onMissionContinue: () => input.requestLock(),
 });
 
 if (perf) {
@@ -125,8 +110,7 @@ if (perf) {
 }
 
 document.addEventListener('pointerlockchange', () => {
-  const locked = document.pointerLockElement === canvas;
-  if (locked) hadPointerLock = true;
+  if (document.pointerLockElement === canvas) hadPointerLock = true;
   else if (hadPointerLock && mode === 'playing') {
     hadPointerLock = false;
     pauseGame();
@@ -135,7 +119,6 @@ document.addEventListener('pointerlockchange', () => {
 canvas.addEventListener('click', () => {
   if (mode === 'playing' && !input.locked) input.requestLock();
 });
-
 window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight, false);
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -148,31 +131,25 @@ async function boot() {
   try {
     hud.setLoading(0.04, 'Charting Salt Harbor');
     assets = new AssetLibrary();
-    await assets.load((progress, key) => {
-      hud.setLoading(0.05 + progress * 0.72, `Loading ${labelFor(key)}`);
-    });
-    if (debug) {
-      console.table(assets.debugStats);
-    }
+    await assets.load((progress, key) => hud.setLoading(0.05 + progress * 0.72, `Loading ${labelFor(key)}`));
+    if (debug) console.table(assets.debugStats);
     hud.setLoading(0.8, 'Building the harbour');
     collision = new CollisionWorld();
     const world = buildWorld(scene, collision, assets);
     collision.build();
-    if (debug) {
-      console.info('Collider stats', collision.stats());
-    }
+    if (debug) console.info('Collider stats', collision.stats());
     hud.setLoading(0.9, 'Waking the city');
     player = new Player(scene, assets, collision);
     effects = new Effects(scene);
     fleet = new VehicleFleet(scene, collision, assets);
     npc = new NpcDirector(scene, assets);
-    police = new PoliceDirector(fleet, player, audio);
-    combat = new CombatDirector({
-      scene, assets, player, police, hud, audio, effects, collision,
+    police = new PoliceDirector(fleet, player, audio, () => {
+      hud.showToast('Collared by Unit 7 · released at the workshop');
+      hud.setWanted(0);
+      missions?.hud.setWanted(0);
     });
-    missions = new MissionDirector({
-      scene, player, fleet, police, npc, hud, audio, combat,
-    });
+    combat = new CombatDirector({ scene, assets, player, police, hud, audio, effects, collision });
+    missions = new MissionDirector({ scene, player, fleet, police, npc, hud, audio, combat });
     minimap = new Minimap(hud.minimapCanvas, collision);
     hud.setMoney(missions.money);
     hud.setHealth(player.health);
@@ -186,7 +163,7 @@ async function boot() {
       window.__clearFreeCam = () => { window.__freeCam = null; };
     }
 
-    if (requestedShot && SHOT_NAMES.includes(requestedShot)) {
+    if (requestedShot && SHOTS.includes(requestedShot)) {
       hud.finishLoading();
       hud.hideTitle();
       hud.setMoney(245);
@@ -199,8 +176,8 @@ async function boot() {
     lastTime = performance.now();
     requestAnimationFrame(loop);
   } catch (error) {
-    console.error(error);
-    hud.setLoading(1, 'Could not start: ' + error.message);
+    console.error(error.stack ?? error);
+    hud.setLoading(1, `Could not start: ${error.message}`);
     hud.loadText.style.color = '#ef8f7f';
   }
 }
@@ -243,7 +220,7 @@ function resetGame() {
   fleet.driven = null;
   player.setDriving(false);
   combat.reset();
-  police.setWanted(0, false);
+  police.reset();
   hud.setWanted(0);
 }
 
@@ -289,6 +266,7 @@ function resumeGame() {
   hud.showPause(false);
   mode = 'playing';
   audio.start();
+  lastTime = performance.now();
   input.requestLock();
 }
 
@@ -298,9 +276,7 @@ function showTitleMenu() {
   hud.showTitle(!!save.read(), save.summary());
   input.release();
   menuTime = 0;
-  if (fleet.driven) {
-    fleet.exit(player);
-  }
+  if (fleet.driven) fleet.exit(player);
 }
 
 function saveGame(showToast) {
@@ -317,9 +293,7 @@ function saveGame(showToast) {
     ammo: player.ammo,
     reserve: player.reserve,
     combatCleared: combat.cleared,
-    driving: driving
-      ? { name: driving.root.name, x: driving.x, z: driving.z, y: driving.y, yaw: driving.yaw, key: driving.key }
-      : null,
+    driving: driving ? { name: driving.root.name, x: driving.x, z: driving.z, y: driving.y, yaw: driving.yaw, key: driving.key } : null,
   };
   const ok = save.write(data);
   if (showToast) hud.showToast(ok ? 'Game saved' : 'Saved for this session only');
@@ -330,10 +304,7 @@ function nearestDistrict() {
   let bestD = Infinity;
   for (const [name, poi] of Object.entries(POI)) {
     const d = distance2D(player.x, player.z, poi.x, poi.z);
-    if (d < bestD) {
-      bestD = d;
-      best = name;
-    }
+    if (d < bestD) { bestD = d; best = name; }
   }
   const names = {
     workshop: 'Workshop', shopStreet: 'Shop Street', market: 'Fish Market', parkingLot: 'Parking Lot',
@@ -354,9 +325,9 @@ function loop(now) {
     fpsTimer += dt;
     if (fpsTimer >= 1) {
       const fps = fpsFrames / fpsTimer;
+      const info = renderer.info.render;
       fpsFrames = 0;
       fpsTimer = 0;
-      const info = renderer.info.render;
       perfOverlay.textContent = `${fps.toFixed(0)} FPS · ${info.calls} calls · ${(info.triangles / 1000).toFixed(0)}k tris`;
       window.__lastFerryPerf = { fps: +fps.toFixed(1), calls: info.calls, triangles: info.triangles };
     }
@@ -380,12 +351,13 @@ function loop(now) {
 
   if (mode === 'shot' && shot) {
     shot.update(dt);
-    camera.position.copy(shot.cameraPos);
-    camera.lookAt(shot.lookAt);
     if (window.__freeCam) {
       const f = window.__freeCam;
       camera.position.set(f.px, f.py, f.pz);
       camera.lookAt(f.tx, f.ty, f.tz);
+    } else {
+      camera.position.copy(shot.cameraPos);
+      camera.lookAt(shot.lookAt);
     }
     camera.fov = 57;
     camera.updateProjectionMatrix();
@@ -405,16 +377,15 @@ function loop(now) {
     return;
   }
 
-  // Playing.
   if (!hud.missionCard.classList.contains('hidden')) {
     renderer.render(scene, camera);
     input.endFrame();
     return;
   }
   if (input.consume('Escape')) pauseGame();
-  const driving = fleet.driven;
+
   if (input.consume('KeyE')) {
-    if (driving) {
+    if (fleet.driven) {
       fleet.exit(player);
       driveOrbit = 0;
       audio.ui();
@@ -422,13 +393,14 @@ function loop(now) {
       const vehicle = fleet.nearestVehicle(player);
       if (vehicle) {
         fleet.enter(vehicle, player);
-        missionOnEnter(vehicle);
+        missions.onEnterVehicle(vehicle);
         driveOrbit = 0;
         drivePitch = 0.26;
         audio.ui();
       }
     }
   }
+
   if (!fleet.driven && input.consume('KeyR')) {
     player.setEquipped(!player.equipped);
     hud.setAmmo(player.ammo, player.reserve, player.equipped);
@@ -453,11 +425,9 @@ function loop(now) {
     camera.fov += (60 + speedRatio * 9 - camera.fov) * Math.min(1, dt * 5);
     camera.updateProjectionMatrix();
   } else {
-    if (player.equipped && input.consumeClick()) {
-      fireRifle();
-    }
-    if (!player.equipped && input.consumeClick()) {
-      player.punch();
+    if (input.consumeClick()) {
+      if (player.equipped) fireRifle();
+      else player.punch();
     }
     if (input.consume('KeyJ')) player.punch();
     if (input.consume('KeyK')) player.kick();
@@ -467,8 +437,6 @@ function loop(now) {
 
   fleet.update(dt, player, input, true);
   if (fleet.driven) {
-    // While driving, the player's position follows the vehicle so missions,
-    // police pursuit and the minimap all read the same location.
     player.position.set(fleet.driven.x, fleet.driven.y, fleet.driven.z);
     player.yaw = fleet.driven.yaw;
   }
@@ -487,18 +455,15 @@ function loop(now) {
   sun.position.set(activePos.x + sunDir.x * 170, sunDir.y * 170, activePos.z + sunDir.z * 170);
 
   audio.setEngine(!!fleet.driven, fleet.driven ? Math.abs(fleet.driven.speed) / fleet.driven.maxSpeed : 0);
-
-  const speed = fleet.driven ? Math.abs(fleet.driven.speed) * 3.6 : 0;
-  hud.setSpeed(speed, !!fleet.driven);
+  hud.setSpeed(fleet.driven ? Math.abs(fleet.driven.speed) * 3.6 : 0, !!fleet.driven);
   hud.setAmmo(player.ammo, player.reserve, player.equipped && !fleet.driven);
   hud.setHealth(player.health);
   hud.setMoney(missions.money);
   hud.setCrosshair(player.equipped && !fleet.driven);
   hud.setDistrict(nearestDistrict());
 
-  if (fleet.driven) {
-    hud.setInteract(`Exit ${fleet.driven.label}`);
-  } else {
+  if (fleet.driven) hud.setInteract(`Exit ${fleet.driven.label}`);
+  else {
     const vehicle = fleet.nearestVehicle(player);
     hud.setInteract(vehicle ? `Enter ${vehicle.label}` : '');
   }
@@ -514,10 +479,6 @@ function loop(now) {
   input.endFrame();
 }
 
-function missionOnEnter(vehicle) {
-  missions.onEnterVehicle(vehicle);
-}
-
 function fireRifle() {
   if (!player.canFire()) return;
   player.fire();
@@ -530,13 +491,9 @@ function fireRifle() {
   effects.flash(muzzle);
   combat.playerShot(origin, direction, muzzle);
   const wall = collision.raycast(origin, direction, 95);
-  if (wall) {
-    const point = origin.clone().addScaledVector(direction, wall.distance);
-    effects.impact(point, null, 0xcabfa4);
-  }
+  if (wall) effects.impact(origin.clone().addScaledVector(direction, wall.distance), null, 0xcabfa4);
 }
 
-let minimapAccumulator = 0;
 function drawMinimap(dt) {
   minimapAccumulator += dt;
   if (minimapAccumulator < 0.06) return;
@@ -546,4 +503,171 @@ function drawMinimap(dt) {
     vehicles: fleet.vehicles,
     objective: missions.objective,
   });
+}
+
+// --- screenshot stages ------------------------------------------------------
+
+function setupShot(name, ctx) {
+  const { player, fleet, police, npc, hud, mission, combat } = ctx;
+  const cameraPos = new THREE.Vector3();
+  const lookAt = new THREE.Vector3();
+  const hooks = [];
+  hud.hideDialogue();
+  hud.setInteract('');
+  hud.setHealth(100);
+  hud.setMoney(245);
+  hud.setAmmo(player.ammo, player.reserve, false);
+  hud.setCrosshair(false);
+  hud.setSpeed(0, false);
+  fleet.driven = null;
+  player.setDriving(false);
+  player.setEquipped(false);
+  police.setWanted(0, false);
+
+  if (name === 'cover') {
+    const tow = fleet.towTruck;
+    Object.assign(tow, { x: 100, z: 87, y: 2.5, yaw: -Math.PI / 2, speed: 11 });
+    tow.applyTransform();
+    tow.root.rotation.set(0, tow.yaw, 0);
+    player.setDriving(true);
+    player.root.visible = false;
+    player.position.set(tow.x, tow.y, tow.z);
+    player.yaw = tow.yaw;
+    fleet.driven = tow;
+
+    const patrol = police.patrol;
+    Object.assign(patrol, { x: 114, z: 82.8, y: 2.5, yaw: -Math.PI / 2 });
+    patrol.wanted = true;
+    patrol.applyTransform();
+    patrol.root.rotation.set(0, patrol.yaw, 0);
+    police.setWanted(1, true);
+    police.sirenTime = 0.3;
+    patrol.state = 'chase';
+    mission.stage = 'ferry_lane';
+    mission.setObjective('Park in the ferry lane', 'Ferry Terminal · Pier 4', NODES.lane_ferry_dest.x, NODES.lane_ferry_dest.z);
+    hud.setWanted(1);
+    hud.setMission('Last Ferry', 'Unit 7 is closing.');
+    hud.setSpeed(58, true);
+    hud.setDialogue('DARA', 'Unit 7, he is on the bridge. Do not let him reach the ferry.', 6);
+    cameraPos.set(126, 6.2, 90);
+    lookAt.set(102, 2.4, 86);
+
+    const oncoming = fleet.traffic[0].vehicle;
+    Object.assign(oncoming, { x: 84, z: 90.6, y: 2.5, yaw: Math.PI / 2, speed: 6 });
+    oncoming.applyTransform();
+    oncoming.root.rotation.set(0, oncoming.yaw, 0);
+    oncoming.headlights.visible = true;
+    hooks.push((dt) => {
+      police.sirenTime += dt;
+      patrol.updateLights(dt, police.sirenTime, false);
+      if (tow.speed > 0) tow.speed = 11;
+    });
+  } else if (name === 'market') {
+    player.teleport(94.5, -43, 1.45, 0.16);
+    player.setDriving(false);
+    player.setEquipped(false);
+    player.root.visible = true;
+    player.yaw = 1.45;
+    player.root.rotation.y = player.yaw;
+    player.cameraYaw = player.yaw + Math.PI;
+    mission.stage = 'find_truck';
+    mission.setObjective('Take the impounded tow truck', 'Impound lot · Fish Market', NODES.slot_tow_truck_A.x, NODES.slot_tow_truck_A.z);
+    hud.setWanted(0);
+    hud.setMission('Last Ferry', 'Dara is watching from the lot edge.');
+    hud.setInteract('Enter Tirta · Tow Truck');
+    hud.setCrosshair(false);
+    hud.setSpeed(0, false);
+    cameraPos.set(83, 3.4, -30);
+    lookAt.set(97, 1.0, -41);
+    player.setState('Walking', 0);
+    if (player.activeAction) player.activeAction.setEffectiveTimeScale(0.1);
+    hooks.push((dt) => {
+      player.mixer.update(dt);
+      player.updateRifleAim();
+    });
+  } else if (name === 'terminal') {
+    const tow = fleet.towTruck;
+    Object.assign(tow, { x: -110, z: 101, y: 0.16, yaw: Math.PI / 2, speed: 0 });
+    tow.applyTransform();
+    tow.root.rotation.set(0, tow.yaw, 0);
+    player.setDriving(true);
+    player.root.visible = false;
+    player.position.set(tow.x, tow.y, tow.z);
+    player.yaw = tow.yaw;
+    fleet.driven = tow;
+    npc.setCitizenVisibility(false);
+    npc.idris.root.visible = false;
+    police.setWanted(1, true);
+    Object.assign(police.patrol, { x: 24, z: 86, y: 2.5, yaw: Math.PI / 2 });
+    police.patrol.applyTransform();
+    police.patrol.state = 'chase';
+    mission.stage = 'ferry_lane';
+    mission.setObjective('Park in the ferry lane', 'Ferry Terminal · Pier 4', NODES.lane_ferry_dest.x, NODES.lane_ferry_dest.z);
+    hud.setWanted(1);
+    hud.setMission('Last Ferry', 'The ferry is holding at Pier 4.');
+    hud.setSpeed(0, true);
+    hud.setDialogue('IDRIS', 'Tirta, you are in the lane. The last ferry is holding for you.', 6);
+    hud.setCrosshair(false);
+    cameraPos.set(-128, 6.8, 88);
+    lookAt.set(-108, 1.8, 121);
+    hooks.push((dt) => {
+      police.sirenTime += dt;
+      police.patrol.updateLights(dt, police.sirenTime, false);
+    });
+  } else if (name === 'combat') {
+    player.teleport(154, 38, 2.27, 0.16);
+    player.root.visible = true;
+    player.setEquipped(true);
+    player.yaw = 2.27;
+    player.root.rotation.y = player.yaw;
+    player.health = 72;
+    combat.start();
+    combat.available = false;
+    mission.stage = 'dock_trouble';
+    mission.setObjective('Clear the east quay', 'East Quay · gangsters', 168, 30);
+    hud.setMission('Dock Trouble', 'Armed thugs at the east quay.');
+    hud.setWanted(0);
+    hud.setHealth(72);
+    hud.setAmmo(24, 90, true);
+    hud.setCrosshair(true);
+    hud.setDialogue('DISPATCH', 'Bagas, three thugs are moving cargo at the east quay. Clear them out.', 7);
+    hud.setSpeed(0, false);
+    player.updateRifleAim();
+    player.root.updateWorldMatrix(true, true);
+    const muzzle = new THREE.Vector3(
+      player.x + Math.sin(player.yaw) * 1.1,
+      player.position.y + 1.08,
+      player.z + Math.cos(player.yaw) * 1.1,
+    );
+    const target = new THREE.Vector3(160, 1.2, 30);
+    combat.thugs[0].actor.play('Firing_Rifle', { once: true, restart: true });
+    if (ctx.effects) {
+      ctx.effects.flash(muzzle);
+      ctx.effects.tracer(muzzle, target);
+      ctx.effects.impact(target, null, 0xd86a4a);
+      const items = ctx.effects.items;
+      if (items[0]) { items[0].life = 60; items[0].max = 60; }
+      if (items[1]) { items[1].life = 60; items[1].max = 60; }
+    }
+    cameraPos.set(150, 3.2, 43.5);
+    lookAt.set(165, 1.4, 30);
+    hooks.push((dt) => {
+      player.mixer.update(dt);
+      player.updateRifleAim();
+      for (const thug of combat.thugs) thug.actor.update(dt, player);
+    });
+  }
+  if (name !== 'cover') police.setWanted(name === 'terminal' ? 1 : 0, name === 'terminal');
+  hud.setMoney(245);
+
+  return {
+    name,
+    cameraPos,
+    lookAt,
+    hooks,
+    update(dt) {
+      for (const hook of hooks) hook(dt);
+      npc.update(dt, player);
+    },
+  };
 }

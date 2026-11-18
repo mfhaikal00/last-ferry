@@ -27,7 +27,8 @@ If port 8080 is busy, use `node serve.ts --port 8090`.
 | `E` | Enter or exit a vehicle |
 | `R` | Equip or unequip the rifle |
 | `F` | Reload |
-| Left click | Fire the rifle |
+| `J` / `K` | Punch / kick |
+| Left click | Fire the rifle, or punch when unarmed |
 | `Esc` | Pause |
 | `M` | Replay the run after completing it |
 
@@ -46,10 +47,12 @@ The game starts with a title menu, supports Continue from a browser save, and ru
 ## Files
 
 - `game/index.html` — HUD, menus, title screen and the game canvas.
-- `game/src/main.js` — boot, lighting, loop, interaction routing and screenshot stages.
-- `game/src/city.js`, `roads.js`, `buildings.js`, `props.js`, `world.js` — Salt Harbor geometry and district signs.
-- `game/src/player.js`, `vehicles.js`, `police.js`, `npc.js`, `combat.js` — actors and driving.
-- `game/src/missions.js`, `hud.js`, `minimap.js`, `save.js`, `audio.js`, `fx.js` — game systems.
+- `game/src/main.js` — boot, loop, interaction routing and screenshot stages.
+- `game/src/core.js` — world constants, deterministic random, save, input and procedural audio.
+- `game/src/world.js` — collision proxies, road maths, terrain, sea, sky, bridge and terminal.
+- `game/src/buildings.js`, `props.js`, `assets.js` — building generator, street dressing, GLB/texture pipeline.
+- `game/src/player.js`, `vehicles.js`, `police.js`, `npc.js`, `missions.js` — actors, driving, patrol, story and combat.
+- `game/src/hud.js` — HUD, minimap and menus.
 - `game/assets/` — the project owner's optimised character, vehicle, rifle and ferry GLBs.
 - `game/vendor/` — three.js and the minified glTF/meshopt addons, vendored for offline play.
 - `main.ts` — copies `game/` and `screenshots/` to `/output` and writes the make.fun dossier.
