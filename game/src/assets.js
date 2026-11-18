@@ -86,7 +86,6 @@ export class AssetLibrary {
     });
 
     if (key === 'citizen') {
-      this.applyCitizenColours(scene);
     }
 
     const initial = new THREE.Box3().setFromObject(scene);
@@ -146,42 +145,6 @@ export class AssetLibrary {
         length: +Math.max(size.x, size.z).toFixed(2),
       },
     };
-  }
-
-  applyCitizenColours(scene) {
-    const skin = new THREE.Color(0xc08a63);
-    const shirt = new THREE.Color(0x2f7d74);
-    const pants = new THREE.Color(0x3c4654);
-    const shoes = new THREE.Color(0x272321);
-    const box = new THREE.Box3().setFromObject(scene);
-    const height = Math.max(0.01, box.max.y - box.min.y);
-    scene.traverse((node) => {
-      if (!node.isMesh) return;
-      const pos = node.geometry.getAttribute('position');
-      if (!pos) return;
-      const colours = new Float32Array(pos.count * 3);
-      const c = new THREE.Color();
-      for (let i = 0; i < pos.count; i++) {
-        const y = (pos.getY(i) - box.min.y) / height;
-        if (y > 0.84) c.copy(skin);
-        else if (y > 0.52) c.copy(shirt);
-        else if (y > 0.08) c.copy(pants);
-        else c.copy(shoes);
-        colours[i * 3] = c.r;
-        colours[i * 3 + 1] = c.g;
-        colours[i * 3 + 2] = c.b;
-      }
-      node.geometry.setAttribute('color', new THREE.BufferAttribute(colours, 3));
-      const mats = Array.isArray(node.material) ? node.material : [node.material];
-      node.material = mats.map((mat) => new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        vertexColors: true,
-        roughness: 0.88,
-        metalness: 0,
-        name: 'citizen_flat',
-      }));
-      if (node.material.length === 1) node.material = node.material[0];
-    });
   }
 
   prepareRifle(template) {

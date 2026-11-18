@@ -70,6 +70,11 @@ export class Player {
     this.setState('Walking');
     this.mixer.addEventListener('finished', (event) => {
       if (this.oneShot && event.action === this.oneShot) {
+        // Keep the finished action as the fade-out source and force a state
+        // change: with activeName still naming the old state, setState would
+        // early-return and the clamped one-shot pose would stick.
+        this.activeAction = event.action;
+        this.activeName = null;
         this.oneShot = null;
         this.refreshLocomotion(true);
       }
@@ -168,8 +173,12 @@ export class Player {
     if (this.driving) name = 'Driving';
     else if (this.equipped) name = 'Rifle_Walk';
     else if (speed > 4.7) name = 'Fast_Run';
-    else if (speed > 0.35) name = 'Walking';
-    else name = 'Walking';
+    else if (speed > 0.35) {
+      if (this.moveHint === 'back') name = 'Walking_Backwards';
+      else if (this.moveHint === 'left') name = 'Left_Strafe_Walk';
+      else if (this.moveHint === 'right') name = 'Right_Strafe_Walking';
+      else name = 'Walking';
+    } else name = 'Walking';
     this.setState(name, force ? 0.12 : 0.2);
     if (this.activeAction) {
       if (name === 'Walking' && speed <= 0.35) this.activeAction.setEffectiveTimeScale(0.1);
@@ -215,6 +224,10 @@ export class Player {
         wishZ /= len;
       }
       const sprint = input.isDown('ShiftLeft') || input.isDown('ShiftRight');
+      this.moveHint = forward < 0 && strafe === 0 ? 'back'
+        : forward === 0 && strafe > 0 ? 'right'
+          : forward === 0 && strafe < 0 ? 'left'
+            : null;
       const speed = sprint && !this.equipped ? RUN_SPEED : this.equipped ? 3.8 : WALK_SPEED;
       this.velocity.x = damp(this.velocity.x, wishX * speed, ACCEL, dt);
       this.velocity.y = damp(this.velocity.y, wishZ * speed, ACCEL, dt);
@@ -349,6 +362,16 @@ export class Player {
     if (this.driving || this.reloadTimer > 0 || this.reserve <= 0) return;
     this.reloadTimer = 1.7;
     this.playOneShot('Reload', 0.15);
+  }
+
+  punch() {
+    if (this.driving) return;
+    this.playOneShot('Fist_Fight_A', 0.08);
+  }
+
+  kick() {
+    if (this.driving) return;
+    this.playOneShot('Quad_Punch', 0.08);
   }
 
   finishReload() {

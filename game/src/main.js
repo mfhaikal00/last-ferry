@@ -456,6 +456,11 @@ function loop(now) {
     if (player.equipped && input.consumeClick()) {
       fireRifle();
     }
+    if (!player.equipped && input.consumeClick()) {
+      player.punch();
+    }
+    if (input.consume('KeyJ')) player.punch();
+    if (input.consume('KeyK')) player.kick();
     player.update(dt, input, camera, true);
     fleet.resolvePlayer(player);
   }

@@ -242,7 +242,10 @@ export class NpcDirector {
       labelRange: 42,
       clip: 'Walking_police',
     });
-    this.idris.play('Walking_police', { timeScale: 0.12 });
+    this.idris.play('Walking_police', { timeScale: 1 });
+    this.walkers.push(new PedWalker(this.idris, [
+      [-112, 106.5], [-96, 106.5], [-96, 112.5], [-112, 112.5],
+    ], { speed: 0.95 }));
     this.actors.push(this.idris);
 
     // Two citizens in the market, one on the shop street, one at the terminal.
