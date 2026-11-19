@@ -1,31 +1,55 @@
-// Last Ferry — entrypoint (Node 22, standard library only).
-// The game in game/ is a static, offline three.js world. This program copies the
-// game and its screenshots to /output (or MAKEFUN_OUTPUT_DIR) and writes the
-// make.fun dossier with the kit's vendored library, exactly as the scorer reads it.
+/**
+ * Last Ferry — packs the static game into a make.fun entry.
+ *
+ * Copies game/ and screenshots/ into the output directory (MAKEFUN_OUTPUT_DIR,
+ * or out), then renders dossier.json with the vendored kit library. The
+ * directory is rebuilt from scratch on every run so stale files never leak
+ * into the entry.
+ */
 
-import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildDossier } from './vendor/makefun-game.ts';
+import { buildDossier, readGameTree } from './vendor/makefun-game.ts';
 
-const here = fileURLToPath(new URL('.', import.meta.url));
-const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
+const repoRoot = fileURLToPath(new URL('.', import.meta.url));
+const targetDir = process.env.MAKEFUN_OUTPUT_DIR ?? 'out';
 
-mkdirSync(out, { recursive: true });
-cpSync(join(here, 'game'), join(out, 'game'), { recursive: true });
-mkdirSync(join(out, 'screenshots'), { recursive: true });
-if (existsSync(join(here, 'screenshots'))) cpSync(join(here, 'screenshots'), join(out, 'screenshots'), { recursive: true });
+// Caps mirroring the scorer's gate.json. text_max_bytes trims the dossier;
+// everything else only rejects an entry the gate would already reject.
+const DOSSIER_CAPS = {
+  text_max_bytes: 163840,
+  screenshots: { max: 4, max_bytes: 262144 },
+  game_max_files: 993,
+  game_max_bytes: 50331648,
+  game_path_max_bytes: 1000,
+} as const;
 
-// The scorer's caps: text size shapes the dossier bytes; the rest refuse an
-// entry the gate would refuse (at most four screenshots, each 256 KiB; at most
-// 993 files and 48 MiB in game/; no game path over 1000 UTF-8 bytes).
-writeFileSync(
-  join(out, 'dossier.json'),
-  buildDossier(out, {
-    text_max_bytes: 163840,
-    screenshots: { max: 4, max_bytes: 262144 },
-    game_max_files: 993,
-    game_max_bytes: 50331648,
-    game_path_max_bytes: 1000,
-  }),
-);
+/** Stages game/ and screenshots/ into a freshly emptied output directory. */
+const stageEntry = (dir: string): void => {
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  cpSync(join(repoRoot, 'game'), join(dir, 'game'), { recursive: true });
+  cpSync(join(repoRoot, 'screenshots'), join(dir, 'screenshots'), { recursive: true });
+};
+
+/** Writes the dossier and returns the bytes it wrote, for the summary. */
+const writeDossier = (dir: string): Uint8Array => {
+  const dossier = buildDossier(dir, DOSSIER_CAPS);
+  writeFileSync(join(dir, 'dossier.json'), dossier);
+  return dossier;
+};
+
+const report = (dir: string): void => {
+  const tree = readGameTree(join(dir, 'game'));
+  const shots = readdirSync(join(dir, 'screenshots')).length;
+  const dirs = tree.directories.length;
+  console.log(
+    `last-ferry: ${tree.files.length} files (+${dirs} dirs), ` +
+      `${tree.totalBytes} bytes in game/, ${shots} screenshots, dossier in ${dir}`,
+  );
+};
+
+stageEntry(targetDir);
+writeDossier(targetDir);
+report(targetDir);
