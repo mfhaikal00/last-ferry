@@ -35,7 +35,7 @@ showToast(text){this.toast.textContent=text;this.toast.classList.add('show');thi
 setInteract(text){if(text===this.interaction)return;this.interaction=text;if(text){this.interact.innerHTML=`<kbd>E</kbd>${text}`;this.interact.classList.add('show')}else this.interact.classList.remove('show')}
 setCrosshair(visible){this.crosshair.classList.toggle('show',visible)}
 damageFlash(){this.damage.classList.add('on');this.damageTimer=.12}
-showMissionComplete(data){this.missionCard.classList.remove('hidden');this.missionCard.querySelector('#card-title').textContent=data.title;this.missionCard.querySelector('#card-detail').textContent=data.detail;const reward=data.reward??data.money;this.missionCard.querySelector('#card-reward').textContent=reward?`+$${reward}`:''}
+showMissionComplete(data){this.missionCard.classList.remove('hidden');this.missionCard.querySelector('#card-title').textContent=data.title;this.missionCard.querySelector('#card-detail').textContent=data.detail;const reward=data.reward??data.money;this.missionCard.querySelector('#card-reward').textContent=reward?`+$${reward}`:'';this.missionCard.querySelector('#card-continue').focus();document.exitPointerLock?.()}
 showPause(visible){this.pauseScreen.classList.toggle('hidden',!visible)}
 update(dt){if(this.dialogueTimer>0){this.dialogueTimer-=dt;if(this.dialogueTimer<=0)this.dialogue.classList.remove('show')}if(this.toastTimer>0){this.toastTimer-=dt;if(this.toastTimer<=0)this.toast.classList.remove('show')}if(this.damageTimer>0){this.damageTimer-=dt;if(this.damageTimer<=0)this.damage.classList.remove('on')}}}
 export class Minimap{
