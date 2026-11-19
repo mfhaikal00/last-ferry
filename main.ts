@@ -1,10 +1,9 @@
 /**
- * Last Ferry — packs the static game into a make.fun entry.
+ * Last Ferry — stages the static game and screenshots into a make.fun entry.
  *
- * Copies game/ and screenshots/ into the output directory (MAKEFUN_OUTPUT_DIR,
- * or out), then renders dossier.json with the vendored kit library. The
- * directory is rebuilt from scratch on every run so stale files never leak
- * into the entry.
+ * MAKEFUN_OUTPUT_DIR (default "out") is emptied, receives game/ and screenshots/,
+ * then dossier.json is rendered by the vendored kit. Caps mirror the scorer's
+ * gate.json: only text_max_bytes changes the dossier, the rest only reject.
  */
 
 import { cpSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -12,12 +11,10 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDossier, readGameTree } from './vendor/makefun-game.ts';
 
-const repoRoot = fileURLToPath(new URL('.', import.meta.url));
-const targetDir = process.env.MAKEFUN_OUTPUT_DIR ?? 'out';
+const root = fileURLToPath(new URL('.', import.meta.url));
+const outputDir = process.env.MAKEFUN_OUTPUT_DIR ?? 'out';
 
-// Caps mirroring the scorer's gate.json. text_max_bytes trims the dossier;
-// everything else only rejects an entry the gate would already reject.
-const DOSSIER_CAPS = {
+const caps = {
   text_max_bytes: 163840,
   screenshots: { max: 4, max_bytes: 262144 },
   game_max_files: 993,
@@ -25,31 +22,32 @@ const DOSSIER_CAPS = {
   game_path_max_bytes: 1000,
 } as const;
 
-/** Stages game/ and screenshots/ into a freshly emptied output directory. */
-const stageEntry = (dir: string): void => {
+/** Empties the entry directory, then copies the playable sources and stills. */
+function stage(dir: string): void {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
-  cpSync(join(repoRoot, 'game'), join(dir, 'game'), { recursive: true });
-  cpSync(join(repoRoot, 'screenshots'), join(dir, 'screenshots'), { recursive: true });
-};
+  for (const folder of ['game', 'screenshots']) {
+    cpSync(join(root, folder), join(dir, folder), { recursive: true });
+  }
+}
 
-/** Writes the dossier and returns the bytes it wrote, for the summary. */
-const writeDossier = (dir: string): Uint8Array => {
-  const dossier = buildDossier(dir, DOSSIER_CAPS);
-  writeFileSync(join(dir, 'dossier.json'), dossier);
-  return dossier;
-};
+/** Writes the dossier into the staged directory and hands back its bytes. */
+function dossier(dir: string): Uint8Array {
+  const bytes = buildDossier(dir, caps);
+  writeFileSync(join(dir, 'dossier.json'), bytes);
+  return bytes;
+}
 
-const report = (dir: string): void => {
+/** Prints the entry summary after staging. */
+function summary(dir: string): void {
   const tree = readGameTree(join(dir, 'game'));
-  const shots = readdirSync(join(dir, 'screenshots')).length;
-  const dirs = tree.directories.length;
+  const screenshots = readdirSync(join(dir, 'screenshots')).length;
   console.log(
-    `last-ferry: ${tree.files.length} files (+${dirs} dirs), ` +
-      `${tree.totalBytes} bytes in game/, ${shots} screenshots, dossier in ${dir}`,
+    `last-ferry: ${tree.files.length} files (+${tree.directories.length} dirs), ` +
+      `${tree.totalBytes} bytes in game/, ${screenshots} screenshots, dossier in ${dir}`,
   );
-};
+}
 
-stageEntry(targetDir);
-writeDossier(targetDir);
-report(targetDir);
+stage(outputDir);
+dossier(outputDir);
+summary(outputDir);
