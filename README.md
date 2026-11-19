@@ -25,6 +25,7 @@ If port 8080 is busy, use `node serve.ts --port 8090`.
 | `Shift` | Sprint |
 | `Space` | Jump / handbrake |
 | `E` | Enter or exit a vehicle |
+| `T` | Hook or release a car with the tow truck |
 | `R` | Equip or unequip the rifle |
 | `F` | Reload |
 | `J` / `K` | Punch / kick |
