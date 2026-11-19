@@ -2,7 +2,7 @@
 export const TITLE='Last Ferry';export const CITY='Salt Harbor';
 export const WORLD={bounds:{minX:-200,maxX:196,minZ:-158,maxZ:176},seaLevel:-.9,landY:0,roadY:.16,sidewalkY:.3,paintY:.315,marketY:.12,pierY:.55,bridgeY:2.5,fogNear:60,fogFar:340};
 export const NODES={spawn_player_01:{x:-146,z:-78,yaw:1.18,area:'Workshop'},slot_tow_truck_A:{x:98,z:-38,yaw:Math.PI/2,area:'Parking Lot'},pos_guard_harbor:{x:87,z:-36,yaw:-Math.PI/2,area:'Parking Lot'},junction_patrol_entry:{x:147,z:44,yaw:Math.PI,area:'Canal Bend'},lane_ferry_dest:{x:-110,z:101,yaw:Math.PI/2,area:'Ferry Lane'},checkpoint_bridge_01:{x:96,z:86,yaw:Math.PI/2,area:'Bridge'}};
-export const POI={workshop:{x:-143,z:-80},shopStreet:{x:-30,z:-70},market:{x:100,z:-92},parkingLot:{x:103,z:-37},canalBend:{x:147,z:30},bridge:{x:96,z:86},waterfront:{x:-20,z:92},terminal:{x:-130,z:80},ferryLane:{x:-110,z:101},westJunction:{x:-172,z:20},alley:{x:64,z:40},pier:{x:-106,z:122},patrolStandby:{x:173,z:41}};
+export const POI={workshop:{x:-143,z:-80},shopStreet:{x:-30,z:-70},market:{x:100,z:-92},parkingLot:{x:103,z:-37},canalBend:{x:147,z:30},bridge:{x:96,z:86},waterfront:{x:-20,z:92},terminal:{x:-112,z:96},ferryLane:{x:-110,z:101},westJunction:{x:-172,z:20},alley:{x:64,z:40},pier:{x:-106,z:122},patrolStandby:{x:173,z:41}};
 const P=(...rows)=>rows.map(([x,z])=>[x,z]);
 const R=(width,sidewalk,twoWay,points,extra={})=>({width,sidewalk,twoWay,points,...extra});
 export const ROADS={
