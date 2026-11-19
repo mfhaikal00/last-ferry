@@ -22,6 +22,9 @@ button{font:inherit;color:inherit;cursor:pointer}
 .mission-name{font-size:10px;letter-spacing:3px;color:var(--amber);text-transform:uppercase;margin-bottom:4px}
 #objective{font-size:21px;font-weight:700;line-height:1.16;text-shadow:0 2px 18px rgba(0,0,0,.85)}
 #objective-area{margin-top:5px;font-size:11px;letter-spacing:1.6px;color:var(--sea);text-transform:uppercase}
+#objective-hint{margin-top:10px;font-size:13px;font-weight:700;letter-spacing:.6px;color:var(--bright);text-shadow:0 1px 10px rgba(0,0,0,.9);opacity:0;transition:opacity 160ms}
+#objective-hint.show{opacity:1}
+#objective-hint:before{content:"◆";margin-right:7px;color:var(--amber)}
 .top-right{position:absolute;top:18px;right:22px;display:flex;flex-direction:column;align-items:flex-end;gap:7px}
 .wanted{display:flex;gap:4px;padding:4px 8px;background:var(--glass);border:1px solid var(--edge);border-radius:3px}
 .wanted .star{font-size:18px;line-height:1;color:rgba(255,255,255,.18);text-shadow:0 1px 4px #000;transition:color 120ms,text-shadow 120ms}
