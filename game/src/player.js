@@ -26,7 +26,7 @@ muzzleWorld(out=new T.Vector3){return this.rifleObject?this.rifleObject.localToW
 canFire(){return this.equipped&&!this.driving&&this.fireCooldown<=0&&this.reloadTimer<=0&&this.ammo>0}
 fire(){if(!this.canFire())return false;this.ammo--;this.fireCooldown=.12;this.firePose=.55;this.playOneShot('Firing_Rifle',.1);if(this.ammo===0)this.reload();return true}
 reload(){if(this.driving||this.reloadTimer>0||this.reserve<=0)return;this.reloadTimer=1.7;this.playOneShot('Reload',.15)}
-punch(){if(this.driving)return;this.playOneShot('Fist_Fight_A',.08)}
+punch(){if(this.driving)return;if(this.oneShotName==='Fist_Fight_A'&&this.oneShot&&!this.oneShot.paused)return;this.playOneShot('Fist_Fight_A',.08)}
 kick(){if(this.driving)return;this.playOneShot('Quad_Punch',.08)}
 finishReload(){const take=M.min(WEAPON.magazine-this.ammo,this.reserve);this.ammo+=take;this.reserve-=take}
 teleport(x,z,yaw=this.yaw,startY=0){this.cancelOneShot();this.position.set(x,walkHeightAt(x,z,startY),z);this.root.position.copy(this.position);this.yaw=yaw;this.cameraYaw=yaw+M.PI;this.root.rotation.y=yaw;this.cameraReady=false;this.velocity.set(0,0);this.vertical=0;this.grounded=true;this.refreshLocomotion(true)}}
