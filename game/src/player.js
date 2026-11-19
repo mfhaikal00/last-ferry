@@ -1,4 +1,4 @@
-// Last Ferry — Bagas on foot: locomotion, camera, one-shots and the rifle.
+// Last Ferry — Bagas on foot: locomotion clips, camera, one-shots and the rifle in hand.
 import * as THREE from '../vendor/three.module.min.js';
 import { findBone } from './assets.js';
 import { NODES, WEAPON, clamp, damp, dampAngle } from './core.js';
