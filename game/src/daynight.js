@@ -5,7 +5,7 @@ import { walkHeightAt } from './world.js';
 const T=THREE,M=Math;
 // The night look: every pair is [day, night], blended over rampSeconds.
 export const DAYNIGHT={rampSeconds:3,maxPointLights:6,
-sky:{top:[0x3f7fae,0x061020],mid:[0xcfe4ee,0x122844],horizon:[0xf7c98d,0x8a4f33],glow:[1,.14]},
+sky:{top:[0x3f7fae,0x061020],mid:[0xcfe4ee,0x1d3350],horizon:[0xf7c98d,0x334f6e],glow:[1,.12]},
 cloud:{color:[0xffe9d2,0x27364f],opacity:[.76,.3]},
 background:[0x0a1a22,0x050b14],
 fog:{color:[0xcdb9a2,0x15283d],near:[100,72],far:[430,360]},
