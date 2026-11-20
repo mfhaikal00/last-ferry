@@ -1,5 +1,5 @@
-// Last Ferry — patrol path steering: tangent orientation, bounded yaw and U-turns.
+// Last Ferry — patrol path steering: forward-only tangent orientation, bounded yaw and speed.
 import { angleDelta } from './core.js';
 const M=Math;
-export function orientPatrol(patrol,path,s,player){const point=path.sample(s),dir=M.cos(angleDelta(point.yaw,M.atan2(player.x-patrol.x,player.z-patrol.z)))>=0?1:-1;patrol.yaw=point.yaw+(dir<0?M.PI:0);patrol.applyTransform();return dir}
-export function steerPatrol(patrol,path,s,target,dir,speed,dt){let delta=target-s;if(delta<-path.length/2)delta+=path.length;if(delta>path.length/2)delta-=path.length;dir=delta>.6?1:delta<-.6?-1:dir||1;const step=dir*M.min(M.abs(delta),speed*dt),want=path.sample(s+step).yaw+(dir<0?M.PI:0),turn=angleDelta(patrol.yaw,want),rate=2.4*dt;patrol.yaw+=M.max(-rate,M.min(rate,turn));const blocked=M.abs(turn)>1.15;if(!blocked)s=((s+step)%path.length+path.length)%path.length;return{s,dir,speed:blocked?0:M.abs(step)/M.max(dt,.0001)}}
+export function orientPatrol(patrol,path,s,player){const point=path.sample(s);patrol.yaw=point.yaw;patrol.applyTransform();return 1}
+export function steerPatrol(patrol,path,s,target,dir,speed,dt){let delta=target-s;if(delta<0)delta+=path.length;const want=delta>1.2?speed:0,acc=9*dt,current=patrol.speed??0,next=current+M.max(-acc,M.min(acc,want-current)),step=M.min(delta,next*dt),point=path.sample(s+step),turn=angleDelta(patrol.yaw,point.yaw),rate=1.4*dt;patrol.yaw+=M.max(-rate,M.min(rate,turn));return{s:((s+step)%path.length+path.length)%path.length,dir:1,speed:next}}
