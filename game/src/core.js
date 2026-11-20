@@ -28,6 +28,7 @@ export const VEHICLES={tow:{file:'car_tow.glb',length:6.2,width:2.35,height:2.55
 export const WEAPON={clip:'Rifle_Walk',bone:'RightHand',magazine:30,damage:34,range:90};
 export const PALETTE={concrete:0xd6cdbb,concreteDark:0x9a9384,coral:0xc9715c,teal:0x4f8d8a,ochre:0xd2a14a,blue:0x2f6fb4,awningBlue:0x2a5fa8,rust:0x8a4a32,roofRust:0x7a4632,roofTile:0xa9543c,roofGrey:0x8b8b82,wood:0x8a6642,glass:0x27464d,asphalt:0x3a3b3c,sidewalk:0xb9b0a0,paint:0xe8e2d0,yellow:0xe4b93a,ferryOrange:0xd96a2b,water:0x2d7488,palm:0x3f7a43,neon:0xffc861};
 export const QUALITY={shadowMap:2048,pixelRatioLimit:1.5,drawDistance:320,trafficCars:3,citizens:4};
+export const STREET_LAMPS=[[-160,-60],[-100,-63.2],[-40,-63.2],[20,-63.2],[74,-60],[112,-60],[154,8],[154,48],[72,102],[20,100],[-40,100],[-90,88],[-150,86],[-164,20],[-164,-40],[-180,-80]];
 export function hashString(text){let h=2166136261;for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
 export function mulberry32(seed){let s=seed>>>0;return()=>{s=(s+0x6d2b79f5)|0;let t=Math.imul(s^(s>>>15),1|s);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296}}
 export const rngFor=name=>mulberry32(hashString(name));
