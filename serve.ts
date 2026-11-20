@@ -1,3 +1,4 @@
+// Last Ferry — local static server for game/.
 // Last Ferry — Salt Harbor. Local development server for game/.
 // A tiny static server for game/ (Node 22, standard library only), so an entry can be played
 // locally without a build step: `node serve.ts` serves game/ on http://localhost:8080.
