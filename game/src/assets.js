@@ -31,6 +31,7 @@ const funnelMat=new T.MeshStandardMaterial({color:0xe9772c,emissive:0x5c1f08,emi
 const cap=new T.Mesh(new T.CylinderGeometry(1.2,1.2,.45,10),new T.MeshStandardMaterial({color:0x25211e,roughness:.8}));cap.position.set(0,15,-2.2);root.add(cap);return{root,size:tpl.size}}
 get debugStats(){return this.stats}}
 export function findBone(root,fragment){const needle=fragment.toLowerCase().replace(/[^a-z]/g,'');let found=null;root.traverse(node=>{if(found||!node.isBone)return;const name=node.name.toLowerCase().replace(/[^a-z]/g,'');if(name.endsWith(needle)||name.includes(needle))found=node});return found}
+export function fadeActor(root,fade){const swaps=new Map,swap=material=>{if(!material)return material;if(!swaps.has(material)){const clone=material.clone();clone.transparent=true;clone.depthWrite=false;swaps.set(material,clone);fade.push(clone)}return swaps.get(material)};root.traverse(node=>{if(node.isMesh)node.material=Array.isArray(node.material)?node.material.map(swap):swap(node.material)})}
 export class Merger{
 constructor(){this.groups=new Map}
 add(geo,material,matrix){const copy=geo.clone();if(matrix)copy.applyMatrix4(matrix);if(!copy.attributes.uv)copy.setAttribute('uv',new T.Float32BufferAttribute(new Float32Array(copy.attributes.position.count*2),2));let group=this.groups.get(material.uuid);if(!group){group={material,geos:[]};this.groups.set(material.uuid,group)}group.geos.push(copy)}
