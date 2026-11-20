@@ -81,7 +81,7 @@ export function buildMissionSigns(scene, collision, materials) {
       if (!found) continue;
     }
     const y = walkHeightAt(spot.x, spot.z, 4);
-    const texture = createSignTexture(spot.title, spot.sub, { bg: spot.bg, fg: '#ffe3a8', wide: true });
+    const texture = createSignTexture(spot.title, spot.sub, { bg: spot.bg, fg: '#ffe3a8', aspect: spot.w / SIGN_HEIGHT });
     const panel = new THREE.Mesh(
       new THREE.PlaneGeometry(spot.w, SIGN_HEIGHT),
       new THREE.MeshStandardMaterial({
