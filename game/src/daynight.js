@@ -8,15 +8,15 @@ export const DAYNIGHT={rampSeconds:3,maxPointLights:6,
 sky:{top:[0x3f7fae,0x061020],mid:[0xcfe4ee,0x122844],horizon:[0xf7c98d,0x8a4f33],glow:[1,.14]},
 cloud:{color:[0xffe9d2,0x27364f],opacity:[.76,.3]},
 background:[0x0a1a22,0x050b14],
-fog:{color:[0xcdb9a2,0x0a1626],near:[100,58],far:[430,300]},
-sun:{color:[0xffd2a3,0x9db4d6],intensity:[2.15,.09]},
-hemi:{sky:[0xcfe4ee,0x2a3d5c],ground:[0x4c4a3a,0x141c26],intensity:[.72,.42]},
-fill:{color:[0x8fb6c4,0x5a7499],intensity:[.45,.24]},
-fillSouth:{color:[0xa8c8d4,0x4e6f92],intensity:[.72,.26]},
-ambient:{color:[0x6f8b93,0x334d68],intensity:[.34,.44]},
+fog:{color:[0xcdb9a2,0x15283d],near:[100,72],far:[430,360]},
+sun:{color:[0xffd2a3,0xa9c0e2],intensity:[2.15,.3]},
+hemi:{sky:[0xcfe4ee,0x4f7099],ground:[0x4c4a3a,0x28313c],intensity:[.72,.8]},
+fill:{color:[0x8fb6c4,0x6f8fb5],intensity:[.45,.5]},
+fillSouth:{color:[0xa8c8d4,0x6a86a8],intensity:[.72,.52]},
+ambient:{color:[0x6f8b93,0x4f6a86],intensity:[.34,.68]},
 water:{deep:[0x0e4c5c,0x041019],shallow:[0x2f8795,0x0a2030],sky:[0xf0b98a,0x1a2a44],glow:[1,.12]},
 lamp:{emissive:[1.4,4.6],pool:.56,light:52},
-headlight:{emissive:[1.4,3.6],cone:.34},
+headlight:{emissive:[1.4,4.2],cone:.62},
 stars:.85};
 const NIGHT_STAGES=new Set(['canal_run','ferry_escape']);
 const clamp01=value=>M.max(0,M.min(1,value));
@@ -38,7 +38,7 @@ _buildStars(){const random=rngFor('salt-harbor-night-stars'),positions=new Float
 const geometry=new T.BufferGeometry;geometry.setAttribute('position',new T.BufferAttribute(positions,3));
 this.starMaterial=new T.PointsMaterial({color:0xdfe8ff,size:1.7,sizeAttenuation:true,transparent:true,opacity:0,depthWrite:false,fog:false,toneMapped:false});
 this.stars=new T.Points(geometry,this.starMaterial);this.stars.name='night_stars';this.stars.frustumCulled=false;this.stars.visible=false;this.scene.add(this.stars)}
-_buildBeam(){const geometry=new T.PlaneGeometry(4.6,12);geometry.rotateX(-M.PI/2);this.beamGeometry=geometry;this.beamMaterial=new T.MeshBasicMaterial({map:this.glowTexture,color:0xffcf8a,transparent:true,opacity:0,depthWrite:false,blending:T.AdditiveBlending,side:T.FrontSide,fog:true,toneMapped:false})}
+_buildBeam(){const geometry=new T.PlaneGeometry(2.8,18);geometry.rotateX(-M.PI/2);this.beamGeometry=geometry;this.beamMaterial=new T.MeshBasicMaterial({map:this.glowTexture,color:0xffe6b8,transparent:true,opacity:0,depthWrite:false,blending:T.AdditiveBlending,side:T.FrontSide,fog:true,toneMapped:false,polygonOffset:true,polygonOffsetFactor:-8,polygonOffsetUnits:-80})}
 _lerp(color,pair){return color.setHex(pair[0]).lerp(this._tmp.setHex(pair[1]),this.phase)}
 setMode(mode){this.mode=mode==='night'?'night':'day';this.target=this.mode==='night'?1:0}
 setStage(stage){const mode=NIGHT_STAGES.has(stage)?'night':'day';if(mode!==this.mode)this.setMode(mode);return this.mode}
@@ -65,9 +65,9 @@ _applyLamps(){const p=this.phase,focus=this._focus,sorted=this.lampPositions.map
 for(let i=0;i<this.pointLights.length;i++){const light=this.pointLights[i],entry=sorted[i];if(entry){light.position.set(entry.lamp.x,entry.lamp.y,entry.lamp.z);light.intensity=DAYNIGHT.lamp.light*p}else light.intensity=0}
 this.activeLampCount=p>.01?M.min(this.pointLights.length,sorted.length):0}
 _applyHeadlights(vehicles){const p=this.phase,headlights=DAYNIGHT.headlight;
-for(const vehicle of vehicles){if(!vehicle?.root)continue;let beam=this._beams.get(vehicle);if(!beam){beam=new T.Mesh(this.beamGeometry,this.beamMaterial);beam.name='headlight_beam';beam.position.set(0,.06,(vehicle.length??4.6)/2+5.6);beam.visible=false;vehicle.root.add(beam);this._beams.set(vehicle,beam)}
+for(const vehicle of vehicles){if(!vehicle?.root)continue;let beam=this._beams.get(vehicle);if(!beam){beam=new T.Group;beam.name='headlight_beam';for(const side of[-1,1]){const pool=new T.Mesh(this.beamGeometry,this.beamMaterial);pool.position.set(side*((vehicle.width??1.9)/2-.35),.2,(vehicle.length??4.6)/2+9.2);pool.renderOrder=3;beam.add(pool)}beam.visible=false;vehicle.root.add(beam);this._beams.set(vehicle,beam)}
 beam.visible=p>.02;
-if(vehicle.headlights){vehicle.headlights.visible=vehicle.headlights.visible||p>.05;vehicle.headlights.traverse(node=>{if(node.isMesh&&node.material&&node.material.emissiveIntensity!==undefined)node.material.emissiveIntensity=headlights.emissive[0]+(headlights.emissive[1]-headlights.emissive[0])*p})}
+if(vehicle.headlights){vehicle.headlights.visible=p>.05;vehicle.headlights.traverse(node=>{if(node.isMesh&&node.material&&node.material.emissiveIntensity!==undefined)node.material.emissiveIntensity=headlights.emissive[0]+(headlights.emissive[1]-headlights.emissive[0])*p})}
 if(vehicle.sirenMaterials&&p>.5)for(const material of vehicle.sirenMaterials)if(material.emissiveIntensity<1.1)material.emissiveIntensity=1.1}}
 stats(){return{phase:+this.phase.toFixed(3),mode:this.mode,pointLights:this.pointLights.length,activeLamps:this.activeLampCount,lamps:this.lampPositions.length,headlightBeams:this._beams.size}}
 }
