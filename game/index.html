@@ -27,8 +27,11 @@ button{font:inherit;color:inherit;cursor:pointer}
 #objective-hint:before{content:"◆";margin-right:7px;color:var(--amber)}
 .top-right{position:absolute;top:18px;right:22px;display:flex;flex-direction:column;align-items:flex-end;gap:7px}
 .wanted{display:flex;gap:4px;padding:4px 8px;background:var(--glass);border:1px solid var(--edge);border-radius:3px}
+.wanted.off{display:none}
 .wanted .star{font-size:18px;line-height:1;color:rgba(255,255,255,.18);text-shadow:0 1px 4px #000;transition:color 120ms,text-shadow 120ms}
 .wanted .star.on{color:var(--bright);text-shadow:0 0 10px rgba(255,176,66,.9),0 1px 4px #000}
+.wanted .star.pop{animation:star-pop 420ms cubic-bezier(.2,1.6,.4,1)}
+@keyframes star-pop{0%{transform:scale(.4);filter:brightness(2.4)}45%{transform:scale(1.55)}100%{transform:scale(1)}}
 .minimap-wrap{position:relative;width:210px;height:210px;border-radius:4px;overflow:hidden;border:1px solid rgba(246,218,166,.5);box-shadow:var(--shade),inset 0 0 30px rgba(0,0,0,.55);background:#0e2a33}
 #minimap{width:210px;height:210px;display:block}
 .mini-label{position:absolute;left:8px;bottom:7px;font-size:8px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;text-shadow:0 1px 4px #000}
