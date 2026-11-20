@@ -6,7 +6,7 @@ const T=THREE,M=Math;
 // The night look: every pair is [day, night], blended over rampSeconds.
 export const DAYNIGHT={rampSeconds:3,maxPointLights:6,
 sky:{top:[0x3f7fae,0x061020],mid:[0xcfe4ee,0x1d3350],horizon:[0xf7c98d,0x334f6e],glow:[1,.12]},
-cloud:{color:[0xffe9d2,0x27364f],opacity:[.76,.3]},
+cloud:{color:[0xffe9d2,0x27364f],opacity:[.76,.09]},
 background:[0x0a1a22,0x050b14],
 fog:{color:[0xcdb9a2,0x15283d],near:[100,72],far:[430,360]},
 sun:{color:[0xffd2a3,0xa9c0e2],intensity:[2.15,.3]},
