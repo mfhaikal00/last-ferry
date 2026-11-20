@@ -1,5 +1,5 @@
 // Last Ferry — city systems: the 1–5 star harbour patrol and pedestrian crossings.
-import { NODES, POI, damp, distance2D } from './core.js';
+import { NODES, POI, damp, distance2D, sirenGainAt } from './core.js';
 import { orientPatrol, steerPatrol } from './patrolsteer.js';
 const M=Math;
 const MAX_UNITS=3,SIGHT=70,DECAY=25;
@@ -29,7 +29,7 @@ returnStep(unit,dt){const vehicle=unit.vehicle,home=this.path.nearestS(POI.patro
 standbyStep(unit){const vehicle=unit.vehicle;if(distance2D(vehicle.x,vehicle.z,POI.patrolStandby.x,POI.patrolStandby.z)>8){this.state='return';return}vehicle.x=POI.patrolStandby.x;vehicle.z=POI.patrolStandby.z;vehicle.y=.16;vehicle.yaw=-M.PI/2;vehicle.speed=0;vehicle.applyTransform();vehicle.root.rotation.set(0,vehicle.yaw,0);vehicle.updateLights(0,this.sirenTime,false)}
 checkVehicleHits(){const driven=this.fleet.driven;if(!driven||driven.key==='police'||M.abs(driven.speed)<2)return;for(const unit of this.activeUnits()){const vehicle=unit.vehicle;if(vehicle===driven)continue;const distance=distance2D(driven.x,driven.z,vehicle.x,vehicle.z);if(distance>(driven.halfLength+vehicle.halfLength)*.7||distance<1e-3)continue;const dx=vehicle.x-driven.x,dz=vehicle.z-driven.z,forward=(dx*M.sin(driven.yaw)+dz*M.cos(driven.yaw))/distance;if(forward>.25){this.onPatrolHit();break}}}
 updateCapture(dt,distance){const close=this.wanted>0&&!this.player.driving&&this.player.health>0&&distance<6.5;this.cap=close?M.min(1,this.cap+dt/5.5):M.max(0,this.cap-dt*.55);if(this.cap<1)return;this.cap=0;this.player.teleport(NODES.spawn_player_01.x,NODES.spawn_player_01.z,NODES.spawn_player_01.yaw);this.player.health=100;this.setWanted(0,false);this.patrol.state='standby';this.onCapture?.()}
-sirenVolume(distance=distance2D(this.patrol.x,this.patrol.z,this.player.x,this.player.z)){return M.max(0,1-distance/95)*.55}}
+sirenVolume(distance=distance2D(this.patrol.x,this.patrol.z,this.player.x,this.player.z)){return sirenGainAt(distance)*.12}}
 export const CROSSINGS={market:{x:68,z:-70,span:6.6,px:63.4,pz:-62.2},terminal:{x:-118,z:94,span:7.2,px:-113.4,pz:101.2}};
 export const SIGNAL_TIMING={green:8,amber:2,red:8,cycle:18};
 export class TrafficSignals{
