@@ -26,8 +26,10 @@ const ENTRY_FOLDERS = ['game', 'screenshots'] as const;
 
 /** Replaces the stage directory with a clean copy of every entry folder. */
 function stage(): void {
-  rmSync(stageDir, { recursive: true, force: true });
   mkdirSync(stageDir, { recursive: true });
+  for (const name of readdirSync(stageDir)) {
+    rmSync(join(stageDir, name), { recursive: true, force: true });
+  }
   for (const folder of ENTRY_FOLDERS) {
     cpSync(join(repoRoot, folder), join(stageDir, folder), { recursive: true });
   }
